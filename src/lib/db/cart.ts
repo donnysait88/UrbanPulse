@@ -29,10 +29,10 @@ export async function getCart(): Promise<ShoppingCart | null> {
     });
   }
 
-  const localCardId = cookies().get("localCardId")?.value;
-  cart = localCardId
+  const localCartId = cookies().get("localCartId")?.value;
+  cart = localCartId
     ? await prisma.cart.findUnique({
-        where: { id: localCardId },
+        where: { id: localCartId },
         include: { items: { include: { product: true } } },
       })
     : null;
@@ -65,7 +65,7 @@ export async function createCart(): Promise<ShoppingCart> {
       data: {},
     });
 
-    cookies().set("localCardId", newCart.id);
+    cookies().set("localCartId", newCart.id);
   }
 
   return {
@@ -77,11 +77,11 @@ export async function createCart(): Promise<ShoppingCart> {
 }
 
 export async function mergeAnonymousCartIntoUserCart(userId: string) {
-  const localCardId = cookies().get("localCardId")?.value;
+  const localCartId = cookies().get("localCartId")?.value;
 
-  const localCart = localCardId
+  const localCart = localCartId
     ? await prisma.cart.findUnique({
-        where: { id: localCardId },
+        where: { id: localCartId },
         include: { items: true },
       })
     : null;
@@ -93,42 +93,47 @@ export async function mergeAnonymousCartIntoUserCart(userId: string) {
     include: { items: true },
   });
 
-  
-
   await prisma.$transaction(async (tx) => {
     if (userCart) {
-      const mergedCartItems = mergeCartItems(localCart.items, userCart.items)
-      
+      const mergedCartItems = mergeCartItems(localCart.items, userCart.items);
+
       await tx.cartItem.deleteMany({
-        where: {cardId: userCart.id}
-      })
-      await tx.cartItem.createMany({
-        data: mergedCartItems.map(item => ({
-          cardId: userCart.id,
-          productId: item.productId,
-          quantity: item.quantity
-        }))
-      })
+        where: { cartId: userCart.id },
+      });
+
+      await tx.cart.update({
+        where: { id: userCart.id },
+        data: {
+          items: {
+            createMany: {
+              data: mergedCartItems.map((item) => ({
+                productId: item.productId,
+                quantity: item.quantity,
+              })),
+            },
+          },
+        },
+      });
     } else {
       await tx.cart.create({
         data: {
           userId,
           items: {
             createMany: {
-              data: localCart.items.map(item =>({
+              data: localCart.items.map((item) => ({
                 productId: item.productId,
-                quantity: item.quantity
-              }))
-            }
-          }
-        }
-      })
+                quantity: item.quantity,
+              })),
+            },
+          },
+        },
+      });
     }
     await tx.cart.delete({
-      where: {id: localCart.id}
-    })
+      where: { id: localCart.id },
+    });
 
-    cookies().set("localCardId", "")
+    cookies().set("localCartId", "");
   });
 }
 
