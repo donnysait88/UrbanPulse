@@ -27,15 +27,15 @@ export async function getCart(): Promise<ShoppingCart | null> {
       where: { userId: session.user.id },
       include: { items: { include: { product: true } } },
     });
+  } else {
+    const localCartId = cookies().get("localCartId")?.value;
+    cart = localCartId
+      ? await prisma.cart.findUnique({
+          where: { id: localCartId },
+          include: { items: { include: { product: true } } },
+        })
+      : null;
   }
-
-  const localCartId = cookies().get("localCartId")?.value;
-  cart = localCartId
-    ? await prisma.cart.findUnique({
-        where: { id: localCartId },
-        include: { items: { include: { product: true } } },
-      })
-    : null;
 
   if (!cart) {
     return null;
@@ -44,10 +44,7 @@ export async function getCart(): Promise<ShoppingCart | null> {
   return {
     ...cart,
     size: cart.items.reduce((acc, item) => acc + item.quantity, 0),
-    subtotal: cart.items.reduce(
-      (acc, item) => acc + item.quantity * item.product.price,
-      0,
-    ),
+    subtotal: cart.items.reduce((acc, item) => acc + item.quantity * item.product.price,0,),
   };
 }
 

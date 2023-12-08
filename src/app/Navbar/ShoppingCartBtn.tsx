@@ -3,7 +3,6 @@
 import { ShoppingCart } from "@/lib/db/cart";
 import formatPrice from "@/lib/format";
 import Link from "next/link";
-import { format } from "path";
 import React from "react";
 
 interface ShoppingCartBtnProps {
